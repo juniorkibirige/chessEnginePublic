@@ -115,7 +115,7 @@ int checkResult(S_BOARD *pos)
 
 void PrintOptions()
 {
-    printf("feature ping=1 setboard=1 colors=0 usermove=1 memory=1\n");
+    printf("feature ping=1 setboard=1 colors=0 usermove=1 memory=1 hard=1 myname='Jarvis 1.1' name=1 playother=1\n");
     printf("feature done=1\n");
 }
 
@@ -126,7 +126,7 @@ void XBoard_Loop(S_BOARD *pos, S_SEARCHINFO *info)
     info->POST_THINKING = TRUE;
     setbuf(stdin, NULL);
     setbuf(stdout, NULL);
-    PrintOptions(); // HACK
+    // PrintOptions(); // HACK
 
     int depth = -1, movestogo[2] = {35, 35}, movetime = -1;
     int time = -1, inc = 0;
@@ -239,7 +239,6 @@ void XBoard_Loop(S_BOARD *pos, S_SEARCHINFO *info)
 				MB = 4;
 			if (MB > MAX_HASH)
 				MB = MAX_HASH;
-			printf("Set Hash to %d MB\n", MB);
 			InitHashTable(pos->HashTable, MB);
 			continue;
 		}
@@ -272,6 +271,12 @@ void XBoard_Loop(S_BOARD *pos, S_SEARCHINFO *info)
             continue;
         }
 
+        if (!strcmp(command, "hard"))
+        {
+            pos->ponder = TRUE;
+            continue;
+        }
+
         if (!strcmp(command, "new"))
         {
             ClearHashTable(pos->HashTable);
@@ -297,12 +302,27 @@ void XBoard_Loop(S_BOARD *pos, S_SEARCHINFO *info)
 
         if (!strcmp(command, "usermove"))
         {
+            if(info->ponderStart == TRUE){
+                if((inBuf + 9) == PrMove(info->ponderMove)){
+                    printf("ponderHit\n");
+                }
+            }
             movestogo[pos->side]--;
             move = ParseMove(inBuf + 9, pos);
             if (move == NOMOVE)
                 continue;
             MakeMove(pos, move);
             pos->ply = 0;
+        }
+        if (!strcmp(command, "analyze"))
+        {
+            info->starttime = GetTimeMs();
+            info->depth = MAXDEPTH;
+
+            printf("time:%d start:%d stop:%d depth:%d timeset:%d movestogo:%d mps:%d\n",
+                   time, info->starttime, info->stoptime, info->depth, info->timeset, movestogo[pos->side], mps);
+            SearchPosition(pos, info);
+            continue;
         }
     }
 }

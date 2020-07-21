@@ -25,7 +25,7 @@
 
 typedef unsigned long long U64;
 
-#define NAME "Jarvaang"
+#define NAME "Jarvis 1.1"
 #define BRD_SQ_NUM 120
 
 #define MAXGAMEMOVES 2048
@@ -283,6 +283,12 @@ typedef struct
     int ponderHit;
     int ponderDrop;
     int ponderStart;
+    int ponderMove;
+    int pAlpha;
+    int pBeta;
+    int pDepth;
+    int pDoNull;
+    int sDepth;
 
     int GAME_MODE;
     int POST_THINKING;
@@ -292,6 +298,7 @@ typedef struct
 typedef struct
 {
     int UseBook;
+
 } S_OPTIONS;
 
 /* GAME MOVE */
@@ -476,5 +483,7 @@ extern void Console_Loop(S_BOARD *pos, S_SEARCHINFO *info);
 extern int GetBookMove(S_BOARD *pos);
 extern void CleanPolyBook();
 extern void InitPolyBook();
+
+// syzygy.c
 
 #endif

@@ -84,19 +84,27 @@ void ReadInput(S_SEARCHINFO *info)
         {
             if (!strncmp(input, "quit", 4))
             {
+                info->ponderStart = FALSE;
                 info->stopped = TRUE;
                 info->quit = TRUE;
             }
             else if (!strncmp(input, "stop", 4))
             {
+                info->ponderStart = FALSE;
                 info->ponderStop = TRUE;
                 info->stopped = TRUE;
             }
             else if (!strncmp(input, "ponderhit", 9))
             {
+                info->ponderStart = FALSE;
                 info->ponderHit = TRUE;
                 info->stopped = TRUE;
                 info->starttime = GetTimeMs();
+            }else if (!strncmp(input, "?", 1))
+            {
+                info->ponderStart = FALSE;
+                info->ponderStop = TRUE;
+                info->stopped = TRUE;
             }
         }
         return;

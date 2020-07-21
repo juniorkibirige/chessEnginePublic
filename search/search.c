@@ -5,6 +5,9 @@
 
 int rootDepth;
 
+#define ENDGAME_MAT (1 * PieceVal[wR] + 2 * PieceVal[wN] + 2 * PieceVal[wP] + PieceVal[wK])
+#define IsMateMove (SqAttacked(pos->KingSq[pos->side ^ 1], pos->side, pos))
+
 static void CheckUp(S_SEARCHINFO *info)
 {
     // .. check if time up, or interrupt from GUI
@@ -16,12 +19,22 @@ static void CheckUp(S_SEARCHINFO *info)
     ReadInput(info);
 }
 
-static void PickNextMove(int moveNum, S_MOVELIST *list)
+static void PickNextMove(int moveNum, S_MOVELIST *list, S_BOARD *pos)
 {
     S_MOVE temp;
     int index = 0;
     int bestScore = 0;
     int bestNum = moveNum;
+    for (index = moveNum; index < list->count; ++index)
+    {
+        if (pos->material[pos->side ^ 1] <= ENDGAME_MAT)
+        {
+            if (IsMateMove)
+            {
+                list->moves[index].score += 3000000;
+            }
+        }
+    }
 
     for (index = moveNum; index < list->count; ++index)
     {
@@ -139,7 +152,7 @@ static int Quiescence(int alpha, int beta, S_BOARD *pos, S_SEARCHINFO *info)
 
     for (MoveNum = 0; MoveNum < list->count; ++MoveNum)
     {
-        PickNextMove(MoveNum, list);
+        PickNextMove(MoveNum, list, pos);
         if (!MakeMove(pos, list->moves[MoveNum].move))
         {
             continue;
@@ -261,7 +274,7 @@ static int AlphaBeta(int alpha, int beta, int depth, S_BOARD *pos, S_SEARCHINFO 
 
     for (MoveNum = 0; MoveNum < list->count; ++MoveNum)
     {
-        PickNextMove(MoveNum, list);
+        PickNextMove(MoveNum, list, pos);
         if (!MakeMove(pos, list->moves[MoveNum].move))
         {
             continue;
@@ -368,6 +381,7 @@ void SearchPosition(S_BOARD *pos, S_SEARCHINFO *info)
 
             pvMoves = GetPvLine(currentDepth, pos);
             bestMove = pos->PvArray[0];
+            info->ponderMove = pos->PvArray[1];
             tPonder = pos->PvArray[1];
             if (info->GAME_MODE == UCIMODE)
             {
@@ -402,12 +416,27 @@ void SearchPosition(S_BOARD *pos, S_SEARCHINFO *info)
     if (info->GAME_MODE == UCIMODE)
     {
         printf("bestmove %s", PrMove(bestMove));
-        printf(" ponder %s\n", PrMove(tPonder));
+        printf(" ponder %s\n", PrMove(info->ponderMove));
     }
     else if (info->GAME_MODE == XBOARDMODE)
     {
         printf("move %s\n", PrMove(bestMove));
         MakeMove(pos, bestMove);
+        if (abs(bestScore) == 30000)
+        {
+            if (pos->side == WHITE)
+                printf("(1-0) {White mates}");
+            else if (pos->side == BLACK)
+                printf("(0-1) {Black mates}");
+        }
+        // if(pos->ponder == TRUE) {
+        //     info->ponderStart = TRUE;
+        //     // S_BOARD ppos[1];
+        //     // ppos[1] = pos[1];
+        //     // MakeMove(ppos, bestMove);
+        //     // PonderSearchPosition(ppos, info);
+        //     // return;
+        // }
     }
     else
     {
@@ -461,7 +490,7 @@ static int PonderQuiescence(int alpha, int beta, S_BOARD *pos, S_SEARCHINFO *inf
 
     for (MoveNum = 0; MoveNum < list->count; ++MoveNum)
     {
-        PickNextMove(MoveNum, list);
+        PickNextMove(MoveNum, list, pos);
         if (!MakeMove(pos, list->moves[MoveNum].move))
         {
             continue;
@@ -590,7 +619,7 @@ static int PonderAlphaBeta(int alpha, int beta, int depth, S_BOARD *pos, S_SEARC
 
     for (MoveNum = 0; MoveNum < list->count; ++MoveNum)
     {
-        PickNextMove(MoveNum, list);
+        PickNextMove(MoveNum, list, pos);
         if (!MakeMove(pos, list->moves[MoveNum].move))
         {
             continue;
@@ -603,6 +632,9 @@ static int PonderAlphaBeta(int alpha, int beta, int depth, S_BOARD *pos, S_SEARC
 
         if (info->ponderHit == TRUE)
         {
+            info->pAlpha = alpha;
+            info->pBeta = beta;
+            info->pDoNull = DoNull;
             return EvalPosition(pos);
         }
         else if (info->ponderStop == TRUE)
@@ -675,9 +707,9 @@ static int PonderAlphaBeta(int alpha, int beta, int depth, S_BOARD *pos, S_SEARC
     return alpha;
 }
 
-void PonderSearchPosition(S_BOARD *pos, S_SEARCHINFO *info)
+void DropToNormal(S_SEARCHINFO *info, S_BOARD *pos, int btMove)
 {
-    printf("\n\nPondering  \n\n");
+    printf("\n\nDropped to Normal\n\n");
     int bestMove = NOMOVE;
     int bMove = NOMOVE;
     int bestScore = -INFINITE;
@@ -688,48 +720,109 @@ void PonderSearchPosition(S_BOARD *pos, S_SEARCHINFO *info)
 
     ClearForSearch(pos, info);
 
-    // iterative deepening
-    for (currentDepth = 1; currentDepth <= MAXDEPTH; ++currentDepth)
+    if (EngineOptions->UseBook == TRUE)
     {
+        bestMove = GetBookMove(pos);
+    }
 
-        rootDepth = currentDepth;
-        bestScore = PonderAlphaBeta(-INFINITE, INFINITE, currentDepth, pos, info, TRUE);
-        if (info->ponderStop == TRUE)
+    // iterative deepening
+    if (bestMove == NOMOVE)
+    {
+        bestMove = btMove;
+        printf("Depth: %d\n", info->pDepth);
+        for (currentDepth = info->pDepth; currentDepth <= MAXDEPTH; ++currentDepth)
         {
-            break;
+
+            rootDepth = currentDepth;
+            bestScore = -AlphaBeta(-info->pBeta, -info->pAlpha, currentDepth, pos, info, info->pDoNull);
+            if (info->stopped == TRUE)
+            {
+                break;
+            }
+
+            pvMoves = GetPvLine(currentDepth, pos);
+            bestMove = pos->PvArray[0];
+            temp_ponder = pos->PvArray[1];
+
+            printf("info score cp %d depth %d ", bestScore, currentDepth);
+            printf("nodes %ld time %d pv", info->nodes, GetTimeMs() - info->starttime);
+            pvMoves = GetPvLine(currentDepth, pos);
+            for (pvNum = 0; pvNum < pvMoves; ++pvNum)
+            {
+                printf(" %s", PrMove(pos->PvArray[pvNum]));
+            }
+            printf("\n");
         }
-        /**
+    }
+    printf("bestmove %s", PrMove(bestMove));
+    printf(" ponder %s\n", PrMove(temp_ponder));
+}
+
+void PonderSearchPosition(S_BOARD *pos, S_SEARCHINFO *info)
+{
+    int bestMove = NOMOVE;
+    int bMove = NOMOVE;
+    int bestScore = -INFINITE;
+    int currentDepth = 0;
+    int pvMoves = 0;
+    int pvNum = 0;
+    int temp_ponder;
+    char data[4];
+
+    ClearForSearch(pos, info);
+
+    if (EngineOptions->UseBook == TRUE)
+    {
+        bestMove = GetBookMove(pos);
+    }
+
+    // iterative deepening
+    if (bestMove == NOMOVE)
+    {
+        for (currentDepth = 1; currentDepth <= MAXDEPTH; ++currentDepth)
+        {
+
+            rootDepth = currentDepth;
+            bestScore = PonderAlphaBeta(-INFINITE, INFINITE, currentDepth, pos, info, TRUE);
+            if (info->ponderStop == TRUE)
+            {
+                break;
+            }
+            /**
          * If a ponderhit is obtained 
          * Update stop time
          * Drop into normal search and proceed with Normal search
          */
-        if (info->ponderHit == TRUE)
-        {
-            info->stoptime = info->starttime + info->ponderDrop;
-            info->stopped = FALSE;
-            SearchPosition(pos, info);
-            break;
-        }
+            if (info->ponderHit == TRUE)
+            {
+                info->stoptime = info->starttime + info->ponderDrop;
+                info->stopped = FALSE;
+                info->pDepth = currentDepth;
+                printf("Depth:%d\n", currentDepth);
+                DropToNormal(info, pos, bestMove);
+                // printf("\nNormal return: %s\n\n", data);
+                return;
+            }
 
-        if (info->stopped == TRUE)
-        {
-            break;
-        }
+            if (info->stopped == TRUE)
+            {
+                break;
+            }
 
-        pvMoves = GetPvLine(currentDepth, pos);
-        bestMove = pos->PvArray[0];
-        temp_ponder = pos->PvArray[1];
+            pvMoves = GetPvLine(currentDepth, pos);
+            bestMove = pos->PvArray[0];
+            temp_ponder = pos->PvArray[1];
 
-        printf("info score cp %d depth %d ", bestScore, currentDepth);
-        printf("nodes %ld time %d pv", info->nodes, GetTimeMs() - info->starttime);
-        pvMoves = GetPvLine(currentDepth, pos);
-        for (pvNum = 0; pvNum < pvMoves; ++pvNum)
-        {
-            printf(" %s", PrMove(pos->PvArray[pvNum]));
+            printf("info score cp %d depth %d ", bestScore, currentDepth);
+            printf("nodes %ld time %d pv", info->nodes, GetTimeMs() - info->starttime);
+            pvMoves = GetPvLine(currentDepth, pos);
+            for (pvNum = 0; pvNum < pvMoves; ++pvNum)
+            {
+                printf(" %s", PrMove(pos->PvArray[pvNum]));
+            }
+            printf("\n");
         }
-        printf("\n");
     }
-
     printf("bestmove %s", PrMove(bestMove));
     printf(" ponder %s\n", PrMove(temp_ponder));
 }

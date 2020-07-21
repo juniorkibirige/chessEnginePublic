@@ -175,6 +175,7 @@ void ParseOption(char *line, S_BOARD *pos)
             else
                 EngineOptions->UseBook = FALSE;
         }
+        
     }
 }
 void Uci_Loop(S_BOARD *pos, S_SEARCHINFO *info)
@@ -190,6 +191,7 @@ void Uci_Loop(S_BOARD *pos, S_SEARCHINFO *info)
     printf("option name Ponder type check default true\n");
     printf("option name Hash type spin default 64 min 4 max %d\n", MAX_HASH);
     printf("option name Book type check default true\n");
+    // printf("option name MultiPV type spin default 1 min 1 max 10\n");
     printf("uciok\n");
 
     int MB = 64;
@@ -236,6 +238,7 @@ void Uci_Loop(S_BOARD *pos, S_SEARCHINFO *info)
             printf("option name Ponder type check default true\n");
             printf("option name Hash type spin default 64 min 4 max %d\n", MAX_HASH);
             printf("option name Book type check default true\n");
+    // printf("option name MultiPV type spin default 1 min 1 max 10\n");
             printf("uciok\n");
         }
         else if (!strncmp(line, "debug", 4))

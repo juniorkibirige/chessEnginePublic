@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
                 break;
             continue;
         }
-        else if (!strncmp(line, "mukubiGM", 8))
+        else if (!strncmp(line, "jarvis", 8))
         {
             Console_Loop(pos, info);
             if (info->quit == TRUE)

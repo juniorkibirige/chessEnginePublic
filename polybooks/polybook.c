@@ -6,8 +6,7 @@ typedef struct
     U64 key;
     unsigned short move;
     unsigned short weight;
-    unsigned int learn;
-    
+    unsigned int learn;    
 } S_POLY_BOOK_ENTRY;
 
 long NumEntries = 0;
@@ -23,15 +22,19 @@ void InitPolyBook()
     EngineOptions->UseBook = FALSE;
 
     FILE *pFile = fopen("performance.bin", "rb");
+    // FILE *qFile = fopen("book.bin", "rb");
 
     if (pFile == NULL)
     {
-        printf("Book File Not Read\n");
+        printf("Book Files Not Read\n");
     }
     else
     {
         fseek(pFile, 0, SEEK_END);
         long position = ftell(pFile);
+        // fseek(qFile, 0, SEEK_END);
+        // long qposition = ftell(qFile);
+        // position += qposition;
 
         if (position < sizeof(S_POLY_BOOK_ENTRY))
         {
@@ -40,14 +43,14 @@ void InitPolyBook()
         }
 
         NumEntries = position / sizeof(S_POLY_BOOK_ENTRY);
-        printf("%ld Entries Found in File\n", NumEntries);
 
         entries = (S_POLY_BOOK_ENTRY *)malloc(NumEntries * sizeof(S_POLY_BOOK_ENTRY));
+        // rewind(qFile);
         rewind(pFile);
 
         size_t returnValue;
         returnValue = fread(entries, sizeof(S_POLY_BOOK_ENTRY), NumEntries, pFile);
-        printf("fread() %ld Entries Read In From in File\n", returnValue);
+        // qreturnValue = fread(entries, sizeof(S_POLY_BOOK_ENTRY), (NumEntries - qposition), qFile);
 
         if (NumEntries > 0)
         {
